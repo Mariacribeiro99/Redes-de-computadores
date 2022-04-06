@@ -43,14 +43,11 @@ typedef struct linkLayer{
 #define A_R 0x01 //Receiver 
 #define A_T 0x05 //confirmar!!!!!
 #define UA 0x07  
-#define BCC_R A^UA
+#define BCC_R A_R^UA
+#define BCC_T A_T^SET   //verificar
 #define SET 0x03
 
-/*
-*******************************************************************
-#define BCC_T A^SET
-**************************************************************
-*/
+
 
 
 // Opens a conection using the "port" parameters defined in struct linkLayer, returns "-1" on error and "1" on sucess

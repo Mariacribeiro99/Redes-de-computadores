@@ -16,7 +16,6 @@ struct applicationLayer
 {
   int fileDescriptor; /*Descritor correspondente à porta série*/
   int status;         /*TRANSMITTER | RECEIVER*/
-  int role;
 };
 
 struct linkLayer
@@ -34,7 +33,7 @@ struct linkLayer
 int llopen(int porta, int util)
 {
 
-  int state = 0, i, res, fd;
+  int state = 0, i, res, fd, role, k;
   char *door = malloc(sizeof(char));
   struct applicationLayer app;
   struct linkLayer layer;
@@ -113,11 +112,11 @@ int llopen(int porta, int util)
 
   printf("antes switch \n");
 
-  if (role == 0)
+  if (role == 0) // trans
   {
-    state=0;
+    state = 0;
     input[0] = Flag;
-    input[1] = A;
+    input[1] = A_T;
     input[2] = SET;
     input[3] = BCC_T;
     input[4] = Flag;
@@ -148,11 +147,11 @@ int llopen(int porta, int util)
       // receber informaçao
       case 1:
         printf("ENtramos na funçao read\n");
-        while (!read(fd, &output[0], 1))
+        while (!read(fd, &input[0], 1))
         {
         }
         printf("saimos do primeiro read\n");
-        if (output[0] == Flag)
+        if (input[0] == Flag)
         {
           printf("Lemos a promeira flag\n");
           state = 2;
@@ -163,10 +162,10 @@ int llopen(int porta, int util)
         break;
       // verificação da mensagem recebida, ja paramos o timer de rececao, porque somos fixes e recebemos tudo
       case 2:
-        while (!read(fd, &output[1], 1))
+        while (!read(fd, &input[1], 1))
         {
         }
-        if (output[1] == A)
+        if (input[1] == A_T)
         {
           printf("Address very well received!\n");
           state = 3;
@@ -177,10 +176,10 @@ int llopen(int porta, int util)
         break;
 
       case 3:
-        while (!read(fd, &output[2], 1))
+        while (!read(fd, &input[2], 1))
         {
         }
-        if (output[2] == UA)
+        if (input[2] == UA)
         {
           printf("UA IS HERE WITH US TOOOOO!\n");
           state = 4;
@@ -190,10 +189,10 @@ int llopen(int porta, int util)
 
         break;
       case 4:
-        while (!read(fd, &output[3], 1))
+        while (!read(fd, &input[3], 1))
         {
         }
-        if (output[3] == BCC_R)
+        if (input[3] == BCC_R)
         {
           printf("What, os bits de verificaçao(BCC) tambem estao bem? Crazyy\n");
           state = 5;
@@ -204,10 +203,10 @@ int llopen(int porta, int util)
 
         break;
       case 5:
-        while (!read(fd, &output[4], 1))
+        while (!read(fd, &input[4], 1))
         {
         }
-        if (output[4] == Flag)
+        if (input[4] == Flag)
         {
           printf("RECEBEMOS TUDO EM CONDIÇOES, CONGRATULATIONS\n");
           state = 6;
@@ -223,124 +222,169 @@ int llopen(int porta, int util)
     }
     printf("WE DID IT MOTHERFUCKERS\n");
   }
-}
 
-else if (role == 1)
-{
-  // Flags recetor
-  input[0] = Flag;
-  input[1] = A_R;
-  input[2] = UA;
-  input[3] = BCC_R;
-  input[4] = Flag;
-  // control field definition
-  while (state != 6)
+  else if (role == 1)
   {
-    // Receiver
-    switch (state)
+    // Flags recetor
+    input[0] = Flag;
+    input[1] = A_R;
+    input[2] = UA;
+    input[3] = BCC_R;
+    input[4] = Flag;
+    // control field definition
+    while (state != 6)
     {
-    case 0:
-      printf("ENtramos na funçao read\n");
-      while (!state)
+      // Receiver
+      switch (state)
       {
-        res = read(fd, &buf[0], 1);
+      case 0:
+        printf("ENtramos na funçao read\n");
+        while (!state)
+        {
+          res = read(fd, &buf[0], 1);
+          printf("%d Bytes Read\n", res);
+          if (res == 1)
+            break;
+        }
+        printf("saimos do primeiro read\n");
+        if (buf[0] == Flag)
+        {
+          printf("Lemos a primeira flag\n");
+          state = 1;
+        }
+        else
+          state = 0;
+        break;
+
+        // verificação da mensagem recebida, ja paramos o timer de rececao, porque somos fixes e recebemos tudo
+      case 1:
+        res = 0;
+        printf("ENtramso em state=1\n");
+        while (state && (!res))
+        {
+          res = read(fd, &buf[1], 1);
+        }
         printf("%d Bytes Read\n", res);
-        if (res == 1)
+        if (buf[1] == A_R)
+        {
+          printf("Address very well received!\n");
+          state = 2;
+        }
+        else
+        {
+          state = 0;
+          printf("N recebemos o Address\n");
+        }
+
+        break;
+
+      case 2:
+        res = 0;
+        while ((state == 2) && (!res))
+        {
+          res = read(fd, &buf[2], 1);
+        }
+        if (buf[2] == SET)
+        {
+          printf("SET IS HERE WITH US TOOOOO!\n");
+          state = 3;
+        }
+        else
+          state = 0;
+
+        break;
+      case 3:
+        res = 0;
+        while ((state == 3) && (!res))
+        {
+          res = read(fd, &buf[3], 1);
+        }
+        if (buf[3] == (SET ^ A_R))
+        {
+          printf("What, os bits de verificaçao(BCC) tambem estao bem? Crazyy\n");
+          state = 4;
+        }
+        else
+          state = 0;
+        printf("Erros de transmissao, repeat please bro!\n");
+
+        break;
+      case 4:
+        res = 0;
+        while ((state == 4) && (!res))
+        {
+          res = read(fd, &buf[4], 1);
+        }
+        if (buf[4] == Flag)
+        {
+          printf("RECEBEMOS TUDO EM CONDIÇOES, CONGRATULATIONS\n");
+          state = 5;
           break;
-      }
-      printf("saimos do primeiro read\n");
-      if (buf[0] == Flag)
-      {
-        printf("Lemos a primeira flag\n");
-        state = 1;
-      }
-      else
-        state = 0;
-      break;
+        }
+        else
+          state = 0;
+        printf("Erros de transmissao, repeat please bro!\n");
 
-      // verificação da mensagem recebida, ja paramos o timer de rececao, porque somos fixes e recebemos tudo
-    case 1:
-      res = 0;
-      printf("ENtramso em state=1\n");
-      while (state && (!res))
-      {
-        res = read(fd, &buf[1], 1);
-      }
-      printf("%d Bytes Read\n", res);
-      if (buf[1] == A)
-      {
-        printf("Address very well received!\n");
-        state = 2;
-      }
-      else
-      {
-        state = 0;
-        printf("N recebemos o Address\n");
-      }
-
-      break;
-
-    case 2:
-      res = 0;
-      while ((state == 2) && (!res))
-      {
-        res = read(fd, &buf[2], 1);
-      }
-      if (buf[2] == SET)
-      {
-        printf("SET IS HERE WITH US TOOOOO!\n");
-        state = 3;
-      }
-      else
-        state = 0;
-
-      break;
-    case 3:
-      res = 0;
-      while ((state == 3) && (!res))
-      {
-        res = read(fd, &buf[3], 1);
-      }
-      if (buf[3] == (SET ^ A))
-      {
-        printf("What, os bits de verificaçao(BCC) tambem estao bem? Crazyy\n");
-        state = 4;
-      }
-      else
-        state = 0;
-      printf("Erros de transmissao, repeat please bro!\n");
-
-      break;
-    case 4:
-      res = 0;
-      while ((state == 4) && (!res))
-      {
-        res = read(fd, &buf[4], 1);
-      }
-      if (buf[4] == Flag)
-      {
-        printf("RECEBEMOS TUDO EM CONDIÇOES, CONGRATULATIONS\n");
-        state = 5;
+        break;
+      case 5:
+        // FAZER RETRANS
+        res = write(fd, input, 5);
+        printf("%d Bytes written\n", res);
+        state = 6;
         break;
       }
-      else
-        state = 0;
-      printf("Erros de transmissao, repeat please bro!\n");
-
-      break;
-    case 5:
-      // FAZER RETRANS
-      res = write(fd, input, 5);
-      printf("%d Bytes written\n", res);
-      state = 6;
-      break;
     }
-  }
-  printf("Finished everything \n");
+    printf("Finished everything \n");
 
-  sleep(1);
-  return 0;
+    sleep(1);
+    return 0;
+  }
 }
+
+int len(char *packet)
+{
+  if (!packet)
+    return -1;
+  int fd, length, i = 0;
+  char data, *buf;
+
+  for (i = 1; data != Flag; i++)
+  {
+    buf[i] = data;
+  }
+
+  length = strlen(data);
+
+  return length;
+}
+
+int llread(char *packet)
+{
+  int i, tam,fd, length=0;
+  char Read_buf[tam];
+
+  tam = len(packet);
+  if(tam < 0 ) return -1;
+
+
+  while(length<0){
+    length=read(fd,Read_buf,tam );
+  }
+  printf("packet lenght is %d \n", length);
+
+  for(i =0; i< length; i++){
+    //???????????????????
+  
+    
+  }
+  if(i==length){
+        printf("Nao recebmos flags, tentar outra vez\n");
+      return 0;
+    }
+
+
+
+
 }
 
 int main(int argc, char **argv)
