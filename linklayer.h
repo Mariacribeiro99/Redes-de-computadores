@@ -38,15 +38,6 @@ typedef struct linkLayer{
 #define FALSE 0
 #define TRUE 1
 
-//FLAGS
-#define Flag 0x7e
-#define A_R 0x01 //Receiver 
-#define A_T 0x05 //confirmar!!!!!
-#define UA 0x07  
-#define BCC_R A_R^UA
-#define BCC_T A_T^SET   //verificar
-#define SET 0x03
-
 
 
 

@@ -27,10 +27,20 @@ struct linkLayer
   unsigned int numTransmissions;           /*Número de tentativas em caso de falha*/
   char frame[MAX_RETRANSMISSIONS_DEFAULT]; /*Trama*/
 };
+//FLAGS
+#define Flag 0x7e
+#define A_R 0x01 //Recetor
+#define A_T 0x05 //Transmissor
+#define UA 0x07  
+#define BCC_R A_R^UA
+#define BCC_T A_T^SET   
+#define SET 0x03
+
+
 
 // Inicia comunicaçao entre transmitter(util=0) e receiver(util=1)
 // returns data connection id, or negative value in case of failure/error
-int llopen(int porta, int util)
+int llopen1(int porta, int util)
 {
 
   int state = 0, i, res, fd, role, k;
@@ -257,10 +267,7 @@ int llopen(int porta, int util)
         break;
 
         // verificação da mensagem recebida, ja paramos o timer de rececao, porque somos fixes e recebemos tudo
-      case 1:
-        res = 0;
-        printf("ENtramso em state=1\n");
-        while (state && (!res))
+      case 1://verificare (state && (!res))
         {
           res = read(fd, &buf[1], 1);
         }
@@ -341,6 +348,9 @@ int llopen(int porta, int util)
   }
 }
 
+
+
+
 int len(char *packet)
 {
   if (!packet)
@@ -360,36 +370,91 @@ int len(char *packet)
 
 int llread(char *packet)
 {
-  int i, tam,fd, length=0;
-  char Read_buf[tam];
+  int i, tam, fd, length = 0;
 
   tam = len(packet);
-  if(tam < 0 ) return -1;
+  if (tam < 0)
+    return -1;
 
+  char Read_buf[tam], new_buf[tam];
 
-  while(length<0){
-    length=read(fd,Read_buf,tam );
+  while (length < 0)
+  {
+    length = read(fd, Read_buf, tam);
   }
   printf("packet lenght is %d \n", length);
 
-  for(i =0; i< length; i++){
+  int j=0;
+  for (i = 0; i < length; i++)
+  {
     //???????????????????
-  
-    
-  }
-  if(i==length){
-        printf("Nao recebmos flags, tentar outra vez\n");
-      return 0;
+    if (Read_buf[i] == 0x7d)
+    {
+      if (Read_buf[i + 1] == 0x05e)
+      {
+        new_buf[j]
+      }
     }
-
-
-
-
+  }
+  if (i == length)
+  {
+    printf("Nao recebmos flags, tentar outra vez\n");
+    return 0;
+  }
 }
 
+int llwrite(char *buf, int bufSize)
+{
+
+  int cnt = 0, i = 0, aux, j = 0;
+  int inputSize = (bufSize * % 8);
+  char *input = malloc(sizeof(char) * (bufSize * 2 + 8));
+  char stuff = 0, bcc2[256];
+  input[0] = Flag;
+  input[1] = A;
+  input[2] = C;
+  input[3] = 0;
+
+  for (j = 0; j < 2; j++)
+  {
+    for (i = 0; i < 8; i++)
+    {
+      aux = (input[1 + j] >> i) & 1;
+      printf("aux=%d\n", aux); //reading just fine
+      if (aux)
+      {
+        cnt++;
+      }
+    }
+    if (!(cnt % 2))
+    {
+      input[3] = input[3] | (1 << (7 - j));
+    }
+    cnt = 0;
+  }
+  printf("BCC1=%d", (int)input[3]);
+
+  for (j = 0; j < bufSize; j++)
+  {
+    for (i = 0; i < 8; i++)
+    {
+      //stuff=(stuff<<1)^buf[j]>>i
+      aux = (input[4 + j] >> i) & 1;
+      if (aux)
+      {
+        cnt++;
+      }
+    }
+    if (!(cnt % 2))
+    {
+      input[4 + bufSize] = input[4 + bufSize] | (1 << (7 - j));
+    }
+  }
+}
+*/
 int main(int argc, char **argv)
 {
 
-  llopen(11, 0);
+  llopen1(11, 0);
   return 0;
 }
